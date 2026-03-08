@@ -46,7 +46,11 @@ switcher.register("satellite", satLayer);
 const manager = new PrefetchingManager(map, switcher, [
   { key: "carto",     layer: cartoLayer, priority: 0 },
   { key: "satellite", layer: satLayer,   priority: 1 },
-]);
+], {
+  onQueueEmpty() {
+    console.log("All prefetching complete");
+  },
+});
 
 // Prefetch hidden layers for the current viewport
 manager.prefetchHiddenLayers();
@@ -90,10 +94,11 @@ manager.isLayerPrefetched(key)              // true once all tiles for a layer a
 **`LayerConfig`**
 
 ```ts
-{ key: string; layer: L.TileLayer; priority?: number }
+{ key: string; layer: L.TileLayer; priority?: number; prefetch?: boolean }
 ```
 
-Lower `priority` number = prefetched first. Default: `10`.
+- `priority` - lower number = prefetched first. Default: `10`.
+- `prefetch` - set to `false` to exclude a layer from prefetching entirely. Default: `true`.
 
 **`PrefetchManagerOptions`**
 
@@ -104,6 +109,7 @@ Lower `priority` number = prefetched first. Default: `10`.
 | `nextLocationZoomOffsets` | `number[]` | `[0]` | Extra zoom levels to also prefetch for next location, e.g. `[-1, 0, 1]` |
 | `onTilePrefetched` | `fn` | - | Called on each successful prefetch |
 | `onTileError` | `fn` | - | Called on each failed prefetch |
+| `onQueueEmpty` | `fn` | - | Called when the queue is fully drained and no requests are in flight |
 
 
 ## Development

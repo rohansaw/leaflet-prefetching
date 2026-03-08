@@ -15,6 +15,12 @@ export interface LayerConfig {
    * @default 10
    */
   priority?: number;
+  /**
+   * Whether this layer should be prefetched at all.
+   * Set to `false` to skip prefetching for this layer.
+   * @default true
+   */
+  prefetch?: boolean;
 }
 
 export interface PrefetchManagerOptions {
@@ -38,6 +44,11 @@ export interface PrefetchManagerOptions {
 
   onTilePrefetched?: (url: string, type: PrefetchType, layerKey: string) => void;
   onTileError?: (url: string, error: Error) => void;
+  /**
+   * Called when the queue is fully drained and no requests are in flight.
+   * Useful for running logic after all prefetching is complete.
+   */
+  onQueueEmpty?: () => void;
 }
 
 export interface PrefetchStats {

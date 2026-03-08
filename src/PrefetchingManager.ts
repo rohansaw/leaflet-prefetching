@@ -41,6 +41,7 @@ export class PrefetchingManager {
       nextLocationZoomOffsets: options.nextLocationZoomOffsets ?? [0],
       onTilePrefetched: options.onTilePrefetched ?? (() => {}),
       onTileError: options.onTileError ?? (() => {}),
+      onQueueEmpty: options.onQueueEmpty ?? (() => {}),
     };
   }
 
@@ -107,11 +108,15 @@ export class PrefetchingManager {
   }
 
   private hiddenLayers(): LayerConfig[] {
-    return this.layerConfigs.filter((c) => !this.switcher.isActive(c.key));
+    return this.layerConfigs.filter(
+      (c) => c.prefetch !== false && !this.switcher.isActive(c.key)
+    );
   }
 
   private activeLayers(): LayerConfig[] {
-    return this.layerConfigs.filter((c) => this.switcher.isActive(c.key));
+    return this.layerConfigs.filter(
+      (c) => c.prefetch !== false && this.switcher.isActive(c.key)
+    );
   }
 
   private typeScore(type: PrefetchType): number {
@@ -155,6 +160,9 @@ export class PrefetchingManager {
   private drain(): void {
     while (this.inFlight < this.options.concurrency && this.queue.length > 0) {
       this.fetch(this.queue.shift()!);
+    }
+    if (this.queue.length === 0 && this.inFlight === 0) {
+      this.options.onQueueEmpty();
     }
   }
 
