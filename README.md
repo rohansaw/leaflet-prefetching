@@ -1,6 +1,6 @@
 # leaflet-prefetching
 
-Tile prefetching and instant layer switching prevention for [Leaflet](https://leafletjs.com) maps. Provides utilities for pre-loading hidden map layers and for pre-loading the map tiles around the next anticipated location.
+Tile prefetching and instant layer switching for [Leaflet](https://leafletjs.com) maps. Provides utilities for pre-loading hidden map layers and for pre-loading the map tiles around the next anticipated location.
 
 ## Features
 
