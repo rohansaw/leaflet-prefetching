@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>leaflet-prefetching demo</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script type="importmap">
+    { "imports": { "leaflet": "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/+esm" } }
+  </script>
+  <style>
+    body { margin: 0; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    #controls { padding: 8px 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 14px; border-bottom: 1px solid #ddd; }
+    #controls button { padding: 4px 10px; cursor: pointer; }
+    #controls button.active { font-weight: bold; }
+    .sep { width: 1px; height: 20px; background: #ccc; margin: 0 4px; }
+    .label { font-size: 12px; color: #666; }
+    #controls input[type="number"] { width: 80px; padding: 3px 5px; font-size: 13px; border: 1px solid #ccc; border-radius: 2px; }
+    #controls .coord-label { font-size: 12px; color: #666; }
+    #stats { font-size: 13px; font-weight: bold; margin-left: auto; }
+    #map { flex: 1; }
+    #log { height: 90px; overflow-y: auto; border-top: 1px solid #ddd; padding: 4px 10px; font-size: 12px; font-family: monospace; background: #fafafa; }
+    #log div { margin: 1px 0; }
+    .log-err { color: #c00; }
+  </style>
+</head>
+<body>
+<div id="controls">
+
+  <button id="btnPrefetch">Pre-load Hidden layers</button>
+  <span class="label">Layer:</span>
+  <button class="layer-btn active" data-layer="carto">Carto</button>
+  <button class="layer-btn" data-layer="satellite">Satellite</button>
+  <button class="layer-btn" data-layer="topo">Topo</button>
+
+  <div class="sep"></div>
+  <span class="label">Next location:</span>
+  <span class="coord-label">lat</span><input type="number" id="nextLat" value="48.8566" step="0.0001" />
+  <span class="coord-label">lng</span><input type="number" id="nextLng" value="2.3522" step="0.0001" />
+  <button id="btnPrefetchNext">Pre-load Next location</button>
+  <button id="btnGo">Go</button>
+  <span id="stats"></span>
+</div>
+<div id="map"></div>
+<div id="log"></div>
+<script type="module">
+  import L from "leaflet";
+  import { InstantLayerSwitcher, PrefetchingManager } from "../dist/index.js";
+
+  const logEl = document.getElementById('log');
+  function log(msg, err) {
+    const d = document.createElement('div');
+    if (err) d.className = 'log-err';
+    d.textContent = msg;
+    logEl.appendChild(d);
+    logEl.scrollTop = logEl.scrollHeight;
+    while (logEl.children.length > 200) logEl.removeChild(logEl.firstChild);
+  }
+
+  const map = L.map('map').setView([51.505, -0.09], 12);
+  const switcher = new InstantLayerSwitcher(map);
+
+  const layers = {
+    carto: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+      subdomains: ['a','b','c','d'], attribution: '&copy; OSM & CARTO',
+    }),
+    satellite: L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: 'Tiles &copy; Esri' }
+    ),
+    topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      subdomains: ['a','b','c'], attribution: '&copy; OSM & OpenTopoMap',
+    }),
+  };
+
+  switcher.register('carto', layers.carto, true);
+  switcher.register('satellite', layers.satellite);
+  switcher.register('topo', layers.topo);
+
+  const manager = new PrefetchingManager(map, switcher, [
+    { key: 'carto',     layer: layers.carto,     priority: 0 },
+    { key: 'satellite', layer: layers.satellite,  priority: 1 },
+    { key: 'topo',      layer: layers.topo,       priority: 2 },
+  ], {
+    onTilePrefetched(url, type, key) { updateStats(); log(`✓ [${key}] ${url.split('/').slice(-3).join('/')}`); },
+    onTileError(url) { updateStats(); log(`✗ ${url.split('/').slice(-3).join('/')}`, true); },
+  });
+
+  // Next location from coordinate inputs
+  const latInput = document.getElementById('nextLat');
+  const lngInput = document.getElementById('nextLng');
+  function getNextLL() {
+    return L.latLng(parseFloat(latInput.value) || 0, parseFloat(lngInput.value) || 0);
+  }
+
+  // Stats
+  const statsEl = document.getElementById('stats');
+  function updateStats() {
+    const s = manager.getStats();
+    statsEl.textContent = `Queued: ${s.queued}  |  In-flight: ${s.inFlight}  |  Done: ${s.prefetched}`;
+  }
+
+  // Layer buttons
+  function updateButtons() {
+    document.querySelectorAll('.layer-btn').forEach(btn => {
+      btn.classList.toggle('active', switcher.isActive(btn.dataset.layer));
+    });
+  }
+  document.querySelectorAll('.layer-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.layer;
+      const instant = switcher.switchTo(key);
+      log(`Switch → ${key}` + (instant ? ' (instant)' : ' (loading…)'));
+      updateButtons();
+    });
+  });
+
+  document.getElementById('btnPrefetch').addEventListener('click', () => { manager.prefetchHiddenLayers(); updateStats(); log('Prefetching hidden layers…'); });
+  document.getElementById('btnPrefetchNext').addEventListener('click', () => { const ll = getNextLL(); manager.prefetchNextLocation(ll); updateStats(); log(`Prefetching next location [${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}]…`); });
+  document.getElementById('btnGo').addEventListener('click', () => { map.flyTo(getNextLL(), map.getZoom()); });
+
+  setInterval(updateStats, 500);
+  log('Ready. Use the prefetch buttons to prefetch the imagery for the non-visible layers or the next location before navigating.');
+</script>
+</body>
+</html>
+</html>

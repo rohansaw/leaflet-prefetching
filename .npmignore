@@ -1,0 +1,7 @@
+src/
+example/
+.github/
+*.config.ts
+*.config.mjs
+tsconfig.json
+vitest.config.ts
