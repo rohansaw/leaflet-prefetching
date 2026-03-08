@@ -56,30 +56,34 @@ export class PrefetchingManager {
   }
 
   /**
-   * Prefetch tiles for a known next location:
-   * - Active layer tiles centred on `nextCenter` at current zoom (+/- offsets)
-   * - All hidden layer tiles for the same viewport
+   * Prefetch tiles for a known next location for **all** prefetch-enabled
+   * layers, ordered by each layer's `priority` (lowest number first).
+   *
+   * This is the primary use-case when combined with `InstantLayerSwitcher`,
+   * which already handles loading tiles for the current viewport.
    */
   prefetchNextLocation(nextCenter: L.LatLng): void {
     const zoom = this.map.getZoom();
     const nextBounds = viewportBoundsAt(this.map, nextCenter);
-    const typeScore = this.typeScore("nextLocation");
+
+    const sorted = [...this.prefetchableLayers()].sort(
+      (a, b) => (a.priority ?? 10) - (b.priority ?? 10)
+    );
 
     for (const offset of this.options.nextLocationZoomOffsets) {
       const z = Math.max(0, zoom + offset);
-      for (const cfg of this.activeLayers()) {
+      for (const cfg of sorted) {
         for (const coord of getTileCoordsForBounds(nextBounds, z)) {
           this.enqueue(
             buildTileUrl(cfg.layer, coord),
             "nextLocation",
-            typeScore + (cfg.priority ?? 10),
+            cfg.priority ?? 10,
             cfg.key
           );
         }
       }
     }
 
-    this.enqueueLayerTiles(nextBounds, zoom, "nextLocationLayers");
     this.drain();
   }
 
@@ -113,10 +117,9 @@ export class PrefetchingManager {
     );
   }
 
-  private activeLayers(): LayerConfig[] {
-    return this.layerConfigs.filter(
-      (c) => c.prefetch !== false && this.switcher.isActive(c.key)
-    );
+  /** All layers that are eligible for prefetching (respects `prefetch` flag). */
+  private prefetchableLayers(): LayerConfig[] {
+    return this.layerConfigs.filter((c) => c.prefetch !== false);
   }
 
   private typeScore(type: PrefetchType): number {

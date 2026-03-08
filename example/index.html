@@ -27,8 +27,6 @@
 </head>
 <body>
 <div id="controls">
-
-  <button id="btnPrefetch">Pre-load Hidden layers</button>
   <span class="label">Layer:</span>
   <button class="layer-btn active" data-layer="carto">Carto</button>
   <button class="layer-btn" data-layer="satellite">Satellite</button>
@@ -74,9 +72,9 @@
     }),
   };
 
-  switcher.register('carto', layers.carto, true);
-  switcher.register('satellite', layers.satellite);
-  switcher.register('topo', layers.topo);
+  switcher.register('carto', layers.carto, true, 0);
+  switcher.register('satellite', layers.satellite, false, 1);
+  switcher.register('topo', layers.topo, false, 2);
 
   const manager = new PrefetchingManager(map, switcher, [
     { key: 'carto',     layer: layers.carto,     priority: 0 },
@@ -116,13 +114,11 @@
     });
   });
 
-  document.getElementById('btnPrefetch').addEventListener('click', () => { manager.prefetchHiddenLayers(); updateStats(); log('Prefetching hidden layers…'); });
-  document.getElementById('btnPrefetchNext').addEventListener('click', () => { const ll = getNextLL(); manager.prefetchNextLocation(ll); updateStats(); log(`Prefetching next location [${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}]…`); });
-  document.getElementById('btnGo').addEventListener('click', () => { map.flyTo(getNextLL(), map.getZoom()); });
+  document.getElementById('btnPrefetchNext').addEventListener('click', () => { const ll = getNextLL(); manager.prefetchNextLocation(ll); updateStats(); log(`Prefetching all layers at [${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}]…`); });
+  document.getElementById('btnGo').addEventListener('click', () => { map.setView(getNextLL(), map.getZoom()); });
 
   setInterval(updateStats, 500);
-  log('Ready. Use the prefetch buttons to prefetch the imagery for the non-visible layers or the next location before navigating.');
+  log('Ready. Prefetch tiles for the next location, then navigate instantly.');
 </script>
 </body>
-</html>
 </html>
